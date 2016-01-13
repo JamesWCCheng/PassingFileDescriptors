@@ -93,21 +93,24 @@ int main() {
     fprintf(stderr, "create_server failed\n");
     goto ERR_CREATE_SERVER;
   }
+  while(1) {
+    client = accept(server, NULL, NULL);
+    fprintf(stderr, "client accept %d\n", client);
+    printf("a.txt:%d\n", fd);
+    if (client < 0) {
+      fprintf(stderr, "accept failed\n");
+      goto ERR_ACCEPT;
+    }
 
-  client = accept(server, NULL, NULL);
-  if (client < 0) {
-    fprintf(stderr, "accept failed\n");
-    goto ERR_ACCEPT;
-  }
+    if (send_file_descriptor(client, fd) < 0) {
+      fprintf(stderr, "send_file_descriptor failed: %s\n", strerror(errno));
+      goto ERR_SEND_FILE_DESCRIPTOR;
+    }
 
-  if (send_file_descriptor(client, fd) < 0) {
-    fprintf(stderr, "send_file_descriptor failed: %s\n", strerror(errno));
-    goto ERR_SEND_FILE_DESCRIPTOR;
-  }
-
-  if (shutdown(client, SHUT_RDWR) < 0) {
-    fprintf(stderr, "shutdown failed: %s\n", strerror(errno));
-    goto ERR_SHUTDOWN;
+    if (shutdown(client, SHUT_RDWR) < 0) {
+      fprintf(stderr, "shutdown failed: %s\n", strerror(errno));
+      goto ERR_SHUTDOWN;
+    }
   }
 
 ERR_SHUTDOWN:
