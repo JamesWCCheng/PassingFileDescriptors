@@ -9,12 +9,12 @@ extern int errno;
 static const char * const SOCKET_PATH = "server.sock";
 static const char * const HELLO_WORLD = "Hello, world!\n";
 
-static recv_file_descriptor(int sock) {
-  int fd;
+static void recv_file_descriptor(int sock, int fd[2]) {
+
   struct msghdr message;
   struct iovec iov;
   struct cmsghdr *control_message = NULL;
-  char ctrl_buf[CMSG_SPACE(sizeof(fd))];
+  char ctrl_buf[CMSG_SPACE(sizeof(int) *2)];
   char data[1];
   int res = -1;
 
@@ -42,16 +42,23 @@ static recv_file_descriptor(int sock) {
   for (control_message = CMSG_FIRSTHDR(&message);
       control_message != NULL;
       control_message = CMSG_NXTHDR(&message, control_message)) {
-    if ((control_message->cmsg_level == SOL_SOCKET)
-        && (control_message->cmsg_type == SCM_RIGHTS)) {
-      fd = *((int *)CMSG_DATA(control_message));
-      break;
+      printf("got control_message!\n");
+    int i = 0;
+    int q = (control_message->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr))) / sizeof(int);
+    printf("fd count = %d\n", q);
+    for (i = 0; i < q; i++) {
+      if ((control_message->cmsg_level == SOL_SOCKET)
+          && (control_message->cmsg_type == SCM_RIGHTS)) {
+        fd[i] = *((int *)CMSG_DATA(control_message) + i);
+        printf("fd = %d\n ",fd[i]);
+        //break;
+      }
     }
   }
 
 ERR_RECVMSG:
 EXIT:
-  return fd;
+  return;
 }
 
 int main() {
@@ -82,14 +89,18 @@ int main() {
     goto ERR_CONNECT;
   }
 
-  fd = recv_file_descriptor(sock);
-  if (fd < 0) {
+  int fdrecv[2];
+  recv_file_descriptor(sock, fdrecv);
+  if (fdrecv[0] < 0 || fdrecv[1] < 0) {
     fprintf(stderr, "recv_file_descriptro failed\n");
     goto ERR_RECV_FILE_DESCRIPTOR;
   }
 
-  printf("fd:%d\n", fd);
-  if (write(fd, HELLO_WORLD, strlen(HELLO_WORLD)) < 0) {
+  if (write(fdrecv[0], HELLO_WORLD, strlen(HELLO_WORLD)) < 0) {
+    fprintf(stderr, "write failed: %s\n", strerror(errno));
+    goto ERR_WRITE;
+  }
+  if (write(fdrecv[1], HELLO_WORLD, strlen(HELLO_WORLD)) < 0) {
     fprintf(stderr, "write failed: %s\n", strerror(errno));
     goto ERR_WRITE;
   }

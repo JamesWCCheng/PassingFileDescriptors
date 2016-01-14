@@ -44,17 +44,18 @@ EXIT:
   return sock;
 }
 
-static send_file_descriptor(int sock, int fd) {
+static send_file_descriptor(int sock, int fd[2]) {
+
   struct msghdr message;
   struct iovec iov;
   struct cmsghdr *control_message = NULL;
-  char ctrl_buf[CMSG_SPACE(sizeof(fd))];
+
+  char ctrl_buf[CMSG_SPACE(sizeof(fd[0]) * 2)];
   char data[1];
 
   memset(&message, 0, sizeof(message));
   memset(&iov, 0, sizeof(iov));
   memset(ctrl_buf, 0, sizeof(ctrl_buf));
-
   data[0] = '\0';
   iov.iov_base = data;
   iov.iov_len = sizeof(data);
@@ -69,25 +70,33 @@ static send_file_descriptor(int sock, int fd) {
   control_message = CMSG_FIRSTHDR(&message);
   control_message->cmsg_level = SOL_SOCKET;
   control_message->cmsg_type = SCM_RIGHTS;
-  control_message->cmsg_len = CMSG_LEN(sizeof(fd));
+  control_message->cmsg_len = CMSG_LEN(sizeof(fd[0]) * 2); //!
 
-  *((int*)CMSG_DATA(control_message)) = fd;
-
+  int* dataBuff = ((int*)CMSG_DATA(control_message));
+  memcpy(dataBuff, fd, 2 * sizeof(int));
   return sendmsg(sock, &message, 0);
 }
 
 int main() {
-  int fd = -1, server = -1, client = -1;
+  int fd[2] = {-1, -1};
+  int server = -1, client = -1;
   FILE *fp = NULL;
-
+  FILE *fp2 = NULL;
   fp = fopen("a.txt", "w");
   if (fp == NULL) {
     fprintf(stderr, "fopen(a.txt) failed: %s\n", strerror(errno));
     goto ERR_FOPEN;
   }
-  fd = fileno(fp);
-  printf("a.txt:%d\n", fd);
+  fd[0] = fileno(fp);
+  printf("a.txt:%d\n", fd[0]);
 
+  fp2 = fopen("aa.txt", "w");
+  if (fp2 == NULL) {
+    fprintf(stderr, "fopen(aa.txt) failed: %s\n", strerror(errno));
+    goto ERR_FOPEN;
+  }
+  fd[1] = fileno(fp2);
+  printf("aa.txt:%d\n", fd[1]);
   server = create_server();
   if (server < 0) {
     fprintf(stderr, "create_server failed\n");
@@ -96,7 +105,6 @@ int main() {
   while(1) {
     client = accept(server, NULL, NULL);
     fprintf(stderr, "client accept %d\n", client);
-    printf("a.txt:%d\n", fd);
     if (client < 0) {
       fprintf(stderr, "accept failed\n");
       goto ERR_ACCEPT;
@@ -120,6 +128,7 @@ ERR_ACCEPT:
   close(server);
 ERR_CREATE_SERVER:
   fclose(fp);
+  fclose(fp2);
 ERR_FOPEN:
   return 0;
 }
