@@ -14,7 +14,7 @@ static void recv_file_descriptor(int sock, int fd[2]) {
   struct msghdr message;
   struct iovec iov;
   struct cmsghdr *control_message = NULL;
-  char ctrl_buf[CMSG_SPACE(sizeof(int) *2)];
+  char ctrl_buf[CMSG_SPACE(sizeof(int))];
   char data[1];
   int res = -1;
 
