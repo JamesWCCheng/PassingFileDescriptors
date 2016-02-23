@@ -50,7 +50,7 @@ static send_file_descriptor(int sock, int fd[2]) {
   struct iovec iov;
   struct cmsghdr *control_message = NULL;
 
-  char ctrl_buf[CMSG_SPACE(sizeof(fd[0]) * 2)];
+  char ctrl_buf[CMSG_SPACE(sizeof(fd[0]))];
   char data[1];
 
   memset(&message, 0, sizeof(message));
