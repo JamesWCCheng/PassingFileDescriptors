@@ -50,7 +50,7 @@ static send_file_descriptor(int sock, int fd[2]) {
   struct iovec iov;
   struct cmsghdr *control_message = NULL;
 
-  char ctrl_buf[CMSG_SPACE(sizeof(fd[0]))];
+  char ctrl_buf[CMSG_SPACE(sizeof(fd[0])) * 2];
   char data[1];
 
   memset(&message, 0, sizeof(message));
@@ -68,12 +68,17 @@ static send_file_descriptor(int sock, int fd[2]) {
   message.msg_control = ctrl_buf;
 
   control_message = CMSG_FIRSTHDR(&message);
-  control_message->cmsg_level = SOL_SOCKET;
-  control_message->cmsg_type = SCM_RIGHTS;
-  control_message->cmsg_len = CMSG_LEN(sizeof(fd[0]) * 2); //!
+  int i = 0;
+  for (i = 0; i < 2; i++) {
+    control_message->cmsg_level = SOL_SOCKET;
+    control_message->cmsg_type = SCM_RIGHTS;
+    control_message->cmsg_len = CMSG_LEN(sizeof(fd[i]));
 
-  int* dataBuff = ((int*)CMSG_DATA(control_message));
-  memcpy(dataBuff, fd, 2 * sizeof(int));
+    int* dataBuff = ((int*)CMSG_DATA(control_message));
+    memcpy(dataBuff, fd + i, sizeof(int));
+    control_message = CMSG_NXTHDR(&message, control_message);
+  }
+
   return sendmsg(sock, &message, 0);
 }
 
