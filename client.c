@@ -14,7 +14,7 @@ static void recv_file_descriptor(int sock, int fd[2]) {
   struct msghdr message;
   struct iovec iov;
   struct cmsghdr *control_message = NULL;
-  char ctrl_buf[CMSG_SPACE(sizeof(int))];
+  char ctrl_buf[CMSG_SPACE(sizeof(int) * 2)];//multiple 2 since we want to send two fd in a single control msg
   char data[1];
   int res = -1;
 
